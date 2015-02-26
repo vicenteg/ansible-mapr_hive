@@ -1,0 +1,107 @@
+---
+# tasks file for mapr-hive
+# mysql_root_password comes from top-level group_vars/all
+
+- name: install mysqldb which is required for ansible
+  yum: name=MySQL-python state=present
+  environment: proxy_env
+
+- name: install hive $hive_version and related packages
+  yum: name={{item}} state=present
+  with_items:
+    - mysql
+    - 'mapr-hive-{{hive_version}}*'
+    - 'mapr-hiveserver2-{{hive_version}}*'
+    - 'mapr-hivemetastore-{{hive_version}}*'
+  notify: reconfigure roles
+  environment: proxy_env
+
+- name: store the path to hive
+  shell: rpm -ql mapr-hive  | head -2 | tail -1
+  register: hive_home
+
+- name: ensure the top level hive directory is owned by mapr so logs directory can be created
+  file: path=/opt/mapr/hive owner=mapr group=mapr recurse=yes
+
+# Note that this template may rely on variables in other groups, and as a result, 
+# my not always work when this playbook is run individually.
+- name: write .my.cnf for root
+  template: src=dot-my.cnf.j2 dest=/root/.my.cnf mode=0600 owner=root group=root
+
+- name: ensure hive metastore database exists
+  mysql_db:
+    name="{{hive_db}}"
+    state=present
+    login_user="{{mysql_root_user}}"
+    login_password="{{mysql_root_password}}"
+    login_host="{{hostvars[hive_metastore_host].ansible_hostname}}"
+  register: db_changed
+
+- name: create the hive metastore schema for hive 0.12
+  mysql_db:
+    name="{{hive_db}}"
+    state=import
+    target="{{hive_home.stdout}}/scripts/metastore/upgrade/mysql/hive-schema-0.12.0.mysql.sql"
+    login_user="{{mysql_root_user}}"
+    login_password="{{mysql_root_password}}"
+    login_host="{{hostvars[hive_metastore_host].ansible_hostname}}"
+  when: db_changed.changed and hive_version == '0.12'
+
+- name: create the hive metastore schema for hive 0.13
+  mysql_db:
+    name="{{hive_db}}"
+    state=import
+    target="{{hive_home.stdout}}/scripts/metastore/upgrade/mysql/hive-schema-0.13.0.mysql.sql"
+    login_user="{{mysql_root_user}}"
+    login_password="{{mysql_root_password}}"
+    login_host="{{hostvars[hive_metastore_host].ansible_hostname}}"
+  when: db_changed.changed and hive_version == '0.13'
+
+- name: create mapr user@localhost
+  mysql_user:
+    name={{hive_db_user}}
+    host="localhost"
+    password="{{hive_db_pass}}"
+    check_implicit_admin=yes
+    priv={{hive_db}}.*:ALL
+    login_user="{{mysql_root_user}}"
+    login_password="{{mysql_root_password}}"
+    login_host="{{hostvars[hive_metastore_host].ansible_hostname}}"
+  with_items:
+    - "{{ansible_default_ipv4.address}}"
+    - "{{ansible_hostname}}"
+    - "%"
+
+- name: create mapr user@%
+  mysql_user:
+    name={{hive_db_user}}
+    host={{item}}
+    password={{hive_db_pass}}
+    check_implicit_admin=yes
+    priv={{hive_db}}.*:ALL
+    login_user="{{mysql_root_user}}"
+    login_password="{{mysql_root_password}}"
+    login_host="{{hostvars[hive_metastore_host].ansible_hostname}}"
+  with_items:
+    - "{{ansible_default_ipv4.address}}"
+    - "{{hostvars[hive_metastore_host].ansible_hostname}}"
+    - "{{hostvars[hive_metastore_host].ansible_fqdn}}"
+    - "%"
+
+- name: copy hive-site.xml into place
+  template: src=hive-site.xml.j2 dest="{{hive_home.stdout}}/conf/hive-site.xml"
+
+- name: set hive metastore server
+  hadoop_properties: name="hive.metastore.uris" state=present value="thrift://{{hostvars[hive_metastore_host].ansible_hostname}}:9083" file={{hive_home.stdout}}/conf/hive-site.xml
+
+# XXX: this directory should not be hard coded
+- name: does hive warehouse directory exist?
+  command: sudo -u mapr hadoop fs -test -d /user/hive/warehouse
+  register: warehouse_exists
+  failed_when: warehouse_exists.rc not in (0,1,255)
+
+# Cannot do this when in secure mode without logging in
+- name: create hive warehouse directory
+  command: sudo -u mapr hadoop fs -mkdir -p /user/hive/warehouse
+  when: warehouse_exists.rc in (1,255) and (secure_cluster is not defined or secure_cluster != True)
+  
