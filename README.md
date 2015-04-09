@@ -57,4 +57,4 @@ BSD
 Author Information
 ------------------
 
-Vince Gonzalez - vgonzalez@mapr.com
+Vince Gonzalez
