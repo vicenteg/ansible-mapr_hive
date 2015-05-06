@@ -37,6 +37,11 @@
     login_host="{{hostvars[hive_metastore_host].ansible_hostname}}"
   register: db_changed
 
+- name: check for metastore table
+  command: mysql -u {{mysql_root_user}} --password={{mysql_root_password}} {{hive_db}} -e 'show tables'
+  register: metastore_tables
+  no_log: True
+
 - name: create the hive metastore schema for hive 0.12
   mysql_db:
     name="{{hive_db}}"
@@ -45,7 +50,7 @@
     login_user="{{mysql_root_user}}"
     login_password="{{mysql_root_password}}"
     login_host="{{hostvars[hive_metastore_host].ansible_hostname}}"
-  when: db_changed.changed and hive_version == '0.12'
+  when: metastore_tables.stdout|length == 0 and '0.12' in hive_version
 
 - name: create the hive metastore schema for hive 0.13
   mysql_db:
@@ -55,7 +60,7 @@
     login_user="{{mysql_root_user}}"
     login_password="{{mysql_root_password}}"
     login_host="{{hostvars[hive_metastore_host].ansible_hostname}}"
-  when: db_changed.changed and hive_version == '0.13'
+  when: metastore_tables.stdout|length == 0 and '0.13' in hive_version
 
 - name: create mapr user@localhost
   mysql_user:
