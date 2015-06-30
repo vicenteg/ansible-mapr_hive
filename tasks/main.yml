@@ -96,8 +96,27 @@
 - name: copy hive-site.xml into place
   template: src=hive-site.xml.j2 dest="{{hive_home.stdout}}/conf/hive-site.xml"
 
+- name: enable impersonation (if secure_cluster)
+  hadoop_properties: name={{item}} state=present value="true" file={{hive_home.stdout}}/conf/hive-site.xml
+  with_items:
+    - "hive.metastore.execute.setugi"
+    - "hive.server2.enable.doAs"
+  when: secure_cluster is defined and secure_cluster == "True"
+  notify: restart hiveserver2
+
+- name: enable hive2 authentication
+  hadoop_properties: name=hive.server2.authentication value=PAM file={{hive_home.stdout}}/conf/hive-site.xml
+  when: secure_cluster is defined and secure_cluster == "True"
+  notify: restart hiveserver2
+
+- name: enable hive2 authentication
+  hadoop_properties: name=hive.server2.authentication.pam.services value=login,sudo file={{hive_home.stdout}}/conf/hive-site.xml
+  when: secure_cluster is defined and secure_cluster == "True"
+  notify: restart hiveserver2
+
 - name: set hive metastore server
   hadoop_properties: name="hive.metastore.uris" state=present value="thrift://{{hostvars[hive_metastore_host].ansible_hostname}}:9083" file={{hive_home.stdout}}/conf/hive-site.xml
+  notify: restart hiveserver2
 
 # XXX: this directory should not be hard coded
 - name: does hive warehouse directory exist?

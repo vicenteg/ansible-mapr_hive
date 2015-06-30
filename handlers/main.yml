@@ -3,3 +3,11 @@
 
 - name: reconfigure roles
   command: /opt/mapr/server/configure.sh -R
+
+- name: restart hiveserver2
+  sudo_user: mapr
+  command: maprcli node services -name hs2 -action restart -filter csvc==hs2
+
+- name: restart hivemeta
+  sudo_user: mapr
+  command: maprcli node services -name hivemeta -action restart -filter csvc==hivemeta
