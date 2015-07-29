@@ -93,8 +93,47 @@
     - "{{hostvars[hive_metastore_host].ansible_fqdn}}"
     - "%"
 
-- name: copy hive-site.xml into place
-  template: src=hive-site.xml.j2 dest="{{hive_home.stdout}}/conf/hive-site.xml"
+#- name: copy hive-site.xml into place
+#  template: src=hive-site.xml.j2 dest="{{hive_home.stdout}}/conf/hive-site.xml"
+
+- name: enable SASL for metastore
+  hadoop_properties: name=hive.metastore.sasl.enabled value=false file={{hive_home.stdout}}/conf/hive-site.xml state=present
+  when: secure_cluster is defined and secure_cluster == "True"
+  notify:
+    - restart hiveserver2
+    - restart hivemeta
+
+
+- name: enable SASL auth with encryption when secure
+  hadoop_properties: name=hive.server2.thrift.sasl.qop value=auth-conf file={{hive_home.stdout}}/conf/hive-site.xml state=present
+  when: secure_cluster is defined and secure_cluster == "True"
+  notify:
+    - restart hiveserver2
+    - restart hivemeta
+
+- name: set metastore URI
+  hadoop_properties: name=hive.metastore.uris value=thrift://{{hostvars[hive_metastore_host].ansible_hostname}}:9083 state=present file={{hive_home.stdout}}/conf/hive-site.xml
+  notify:
+    - restart hiveserver2
+    - restart hivemeta
+
+- name: set JDBC URL for the metastore
+  hadoop_properties: name=javax.jdo.option.ConnectionURL value=jdbc:mysql://{{hostvars[hive_metastore_host].ansible_hostname}}:3306/{{hive_db}} state=present file={{hive_home.stdout}}/conf/hive-site.xml
+  notify:
+    - restart hiveserver2
+    - restart hivemeta
+
+- name: set hive metastore user
+  hadoop_properties: name=javax.jdo.option.ConnectionUserName value={{hive_db_user}} state=present file={{hive_home.stdout}}/conf/hive-site.xml
+  notify:
+    - restart hiveserver2
+    - restart hivemeta
+
+- name: set hive metastore password
+  hadoop_properties: name=javax.jdo.option.ConnectionPassword value={{hive_db_pass}} state=present file={{hive_home.stdout}}/conf/hive-site.xml
+  notify:
+    - restart hiveserver2
+    - restart hivemeta
 
 - name: enable impersonation (if secure_cluster)
   hadoop_properties: name={{item}} state=present value="true" file={{hive_home.stdout}}/conf/hive-site.xml
@@ -102,21 +141,50 @@
     - "hive.metastore.execute.setugi"
     - "hive.server2.enable.doAs"
   when: secure_cluster is defined and secure_cluster == "True"
-  notify: restart hiveserver2
+  notify:
+    - restart hiveserver2
+    - restart hivemeta
 
 - name: enable hive2 authentication
   hadoop_properties: name=hive.server2.authentication value=PAM file={{hive_home.stdout}}/conf/hive-site.xml
   when: secure_cluster is defined and secure_cluster == "True"
-  notify: restart hiveserver2
+  notify:
+    - restart hiveserver2
+    - restart hivemeta
+
+- name: enable SSL 
+  hadoop_properties: name=hive.server2.use.SSL value=true file={{hive_home.stdout}}/conf/hive-site.xml state=present
+  when: secure_cluster is defined and secure_cluster == "True"
+  notify:
+    - restart hiveserver2
+    - restart hivemeta
+
+- name: set path to ssl_keystore
+  hadoop_properties: name=hive.server2.keystore.path value=/opt/mapr/conf/ssl_keystore file={{hive_home.stdout}}/conf/hive-site.xml
+  when: secure_cluster is defined and secure_cluster == "True"
+  notify:
+    - restart hiveserver2
+    - restart hivemeta
+
+- name: set password to ssl_keystore
+  hadoop_properties: name=hive.server2.keystore.password value=mapr123 file={{hive_home.stdout}}/conf/hive-site.xml state=present
+  when: secure_cluster is defined and secure_cluster == "True"
+  notify:
+    - restart hiveserver2
+    - restart hivemeta
 
 - name: enable hive2 authentication
   hadoop_properties: name=hive.server2.authentication.pam.services value=login,sudo file={{hive_home.stdout}}/conf/hive-site.xml
   when: secure_cluster is defined and secure_cluster == "True"
-  notify: restart hiveserver2
+  notify:
+    - restart hiveserver2
+    - restart hivemeta
 
 - name: set hive metastore server
   hadoop_properties: name="hive.metastore.uris" state=present value="thrift://{{hostvars[hive_metastore_host].ansible_hostname}}:9083" file={{hive_home.stdout}}/conf/hive-site.xml
-  notify: restart hiveserver2
+  notify:
+    - restart hiveserver2
+    - restart hivemeta
 
 # XXX: this directory should not be hard coded
 - name: does hive warehouse directory exist?

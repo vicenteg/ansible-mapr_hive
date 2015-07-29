@@ -11,4 +11,4 @@ hive_db_user: hive
 hive_db_pass: mapr
 hive_metastore_host: '{{groups["hiveserver"][0]}}'
 
-hive_version: "0.13*"
+hive_version: "1.0*"
