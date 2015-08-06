@@ -96,95 +96,123 @@
 #- name: copy hive-site.xml into place
 #  template: src=hive-site.xml.j2 dest="{{hive_home.stdout}}/conf/hive-site.xml"
 
-- name: enable SASL for metastore
-  hadoop_properties: name=hive.metastore.sasl.enabled value=false file={{hive_home.stdout}}/conf/hive-site.xml state=present
-  when: secure_cluster is defined and secure_cluster == "True"
-  notify:
-    - restart hiveserver2
-    - restart hivemeta
-
-
 - name: enable SASL auth with encryption when secure
   hadoop_properties: name=hive.server2.thrift.sasl.qop value=auth-conf file={{hive_home.stdout}}/conf/hive-site.xml state=present
   when: secure_cluster is defined and secure_cluster == "True"
   notify:
-    - restart hiveserver2
     - restart hivemeta
+    - restart hiveserver2
 
 - name: set metastore URI
   hadoop_properties: name=hive.metastore.uris value=thrift://{{hostvars[hive_metastore_host].ansible_hostname}}:9083 state=present file={{hive_home.stdout}}/conf/hive-site.xml
   notify:
-    - restart hiveserver2
     - restart hivemeta
+    - restart hiveserver2
 
 - name: set JDBC URL for the metastore
   hadoop_properties: name=javax.jdo.option.ConnectionURL value=jdbc:mysql://{{hostvars[hive_metastore_host].ansible_hostname}}:3306/{{hive_db}} state=present file={{hive_home.stdout}}/conf/hive-site.xml
   notify:
-    - restart hiveserver2
     - restart hivemeta
+    - restart hiveserver2
+
+- name: set hiveserver2 thrift port
+  hadoop_properties: name=hive.server2.thrift.port value={{hiveserver2_thrift_port}} file={{hive_home.stdout}}/conf/hive-site.xml state=present
+  notify:
+    - restart hivemeta
+    - restart hiveserver2
 
 - name: set hive metastore user
   hadoop_properties: name=javax.jdo.option.ConnectionUserName value={{hive_db_user}} state=present file={{hive_home.stdout}}/conf/hive-site.xml
   notify:
-    - restart hiveserver2
     - restart hivemeta
+    - restart hiveserver2
 
 - name: set hive metastore password
   hadoop_properties: name=javax.jdo.option.ConnectionPassword value={{hive_db_pass}} state=present file={{hive_home.stdout}}/conf/hive-site.xml
   notify:
-    - restart hiveserver2
     - restart hivemeta
+    - restart hiveserver2
 
 - name: enable impersonation (if secure_cluster)
   hadoop_properties: name={{item}} state=present value="true" file={{hive_home.stdout}}/conf/hive-site.xml
   with_items:
     - "hive.metastore.execute.setugi"
     - "hive.server2.enable.doAs"
+    - "hive.security.metastore.authorization.auth.reads"
   when: secure_cluster is defined and secure_cluster == "True"
   notify:
-    - restart hiveserver2
     - restart hivemeta
+    - restart hiveserver2
 
-- name: enable hive2 authentication
+- name: turn on storage side metastore security if secure_cluster)
+  hadoop_properties: name=hive.metastore.pre.event.listeners state=present value=org.apache.hadoop.hive.ql.security.authorization.AuthorizationPreEventListener file={{hive_home.stdout}}/conf/hive-site.xml
+  when: secure_cluster is defined and secure_cluster == "True"
+  notify:
+    - restart hivemeta
+    - restart hiveserver2
+
+- name: enable storage authn (if secure_cluster)
+  hadoop_properties: name=hive.security.metastore.authenticator.manager state=present value=org.apache.hadoop.hive.ql.security.HadoopDefaultMetastoreAuthenticator file={{hive_home.stdout}}/conf/hive-site.xml
+  when: secure_cluster is defined and secure_cluster == "True"
+  notify:
+    - restart hivemeta
+    - restart hiveserver2
+
+- name: enable storage based authz (if secure_cluster)
+  hadoop_properties: name=hive.security.metastore.authorization.manager state=present value=org.apache.hadoop.hive.ql.security.authorization.StorageBasedAuthorizationProvider file={{hive_home.stdout}}/conf/hive-site.xml
+  when: secure_cluster is defined and secure_cluster == "True"
+  notify:
+    - restart hivemeta
+    - restart hiveserver2
+
+
+- name: enable hive2 PAM authentication
   hadoop_properties: name=hive.server2.authentication value=PAM file={{hive_home.stdout}}/conf/hive-site.xml
-  when: secure_cluster is defined and secure_cluster == "True"
+  when: secure_cluster is defined and secure_cluster == "True" and hive_authentication_type == "pam"
   notify:
-    - restart hiveserver2
     - restart hivemeta
+    - restart hiveserver2
 
-- name: enable SSL 
-  hadoop_properties: name=hive.server2.use.SSL value=true file={{hive_home.stdout}}/conf/hive-site.xml state=present
-  when: secure_cluster is defined and secure_cluster == "True"
+- name: enable hive2 MapR SASL authentication
+  hadoop_properties: name=hive.server2.authentication value=MAPRSASL file={{hive_home.stdout}}/conf/hive-site.xml
+  when: secure_cluster is defined and secure_cluster == "True" and hive_authentication_type == "maprsasl"
   notify:
-    - restart hiveserver2
     - restart hivemeta
+    - restart hiveserver2
+
+- name: enable SSL
+  hadoop_properties: name=hive.server2.use.SSL value=true file={{hive_home.stdout}}/conf/hive-site.xml state=present
+  when: secure_cluster is defined and secure_cluster == "True" and hive_authentication_type == "pam"
+  notify:
+    - restart hivemeta
+    - restart hiveserver2
 
 - name: set path to ssl_keystore
   hadoop_properties: name=hive.server2.keystore.path value=/opt/mapr/conf/ssl_keystore file={{hive_home.stdout}}/conf/hive-site.xml
-  when: secure_cluster is defined and secure_cluster == "True"
+  when: secure_cluster is defined and secure_cluster == "True" and hive_authentication_type == "pam"
   notify:
-    - restart hiveserver2
     - restart hivemeta
+    - restart hiveserver2
 
 - name: set password to ssl_keystore
   hadoop_properties: name=hive.server2.keystore.password value=mapr123 file={{hive_home.stdout}}/conf/hive-site.xml state=present
-  when: secure_cluster is defined and secure_cluster == "True"
+  when: secure_cluster is defined and secure_cluster == "True" and hive_authentication_type == "pam"
   notify:
-    - restart hiveserver2
     - restart hivemeta
+    - restart hiveserver2
 
-- name: enable hive2 authentication
-  hadoop_properties: name=hive.server2.authentication.pam.services value=login,sudo file={{hive_home.stdout}}/conf/hive-site.xml
-  when: secure_cluster is defined and secure_cluster == "True"
+- name: set PAM authentication services
+  hadoop_properties: name=hive.server2.authentication.pam.services value={{hive_pam_services}} file={{hive_home.stdout}}/conf/hive-site.xml
+  when: secure_cluster is defined and secure_cluster == "True" and hive_authentication_type == "pam"
   notify:
-    - restart hiveserver2
     - restart hivemeta
+    - restart hiveserver2
 
 - name: set hive metastore server
   hadoop_properties: name="hive.metastore.uris" state=present value="thrift://{{hostvars[hive_metastore_host].ansible_hostname}}:9083" file={{hive_home.stdout}}/conf/hive-site.xml
   notify:
-    - restart hiveserver2
     - restart hivemeta
+    - restart hiveserver2
 
 # XXX: this directory should not be hard coded
 - name: does hive warehouse directory exist?
@@ -195,5 +223,12 @@
 # Cannot do this when in secure mode without logging in
 - name: create hive warehouse directory
   command: sudo -u mapr hadoop fs -mkdir -p /user/hive/warehouse
-  when: warehouse_exists.rc in (1,255) and (secure_cluster is not defined or secure_cluster != True)
+  when: warehouse_exists.rc in (1,255)
+
+# Cannot do this when in secure mode without logging in
+- name: set permissions on warehouse directory
+  command: sudo -u mapr hadoop fs -chmod 1777 /user/hive/warehouse
+
+- name: pause a few seconds
+  pause: seconds=7
   
