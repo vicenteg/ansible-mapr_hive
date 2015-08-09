@@ -19,6 +19,7 @@
 - name: store the path to hive
   shell: rpm -ql mapr-hive  | head -2 | tail -1
   register: hive_home
+  changed_when: false
 
 - name: ensure the top level hive directory is owned by mapr so logs directory can be created
   file: path=/opt/mapr/hive owner=mapr group=mapr recurse=yes
