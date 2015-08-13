@@ -230,6 +230,9 @@
 - name: set permissions on warehouse directory
   command: sudo -u mapr hadoop fs -chmod 1777 /user/hive/warehouse
 
-- name: pause a few seconds
-  pause: seconds=7
+- name: wait for hs2 and hivemeta to come up
+  wait_for: port={{item}} delay=2 timeout=30
+  with_items:
+    - 9083
+    - '{{hiveserver2_thrift_port}}'
   
