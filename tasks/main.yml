@@ -41,6 +41,7 @@
 - name: check for metastore table
   command: mysql -u {{mysql_root_user}} --password={{mysql_root_password}} {{hive_db}} -e 'show tables'
   register: metastore_tables
+  changed_when: false
   no_log: True
 
 - name: create the hive metastore schema for hive 0.12
@@ -220,6 +221,7 @@
   command: sudo -u mapr hadoop fs -test -d /user/hive/warehouse
   register: warehouse_exists
   failed_when: warehouse_exists.rc not in (0,1,255)
+  changed_when: false
 
 # Cannot do this when in secure mode without logging in
 - name: create hive warehouse directory
