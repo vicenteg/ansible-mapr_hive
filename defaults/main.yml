@@ -17,3 +17,4 @@ hive_authentication_type: maprsasl
 hive_pam_services: login,sudo,sshd
 
 hiveserver2_thrift_port: 10000
+hivemeta_thrift_port: 9083

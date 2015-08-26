@@ -106,7 +106,7 @@
     - restart hiveserver2
 
 - name: set metastore URI
-  hadoop_properties: name=hive.metastore.uris value=thrift://{{hostvars[hive_metastore_host].ansible_hostname}}:9083 state=present file={{hive_home.stdout}}/conf/hive-site.xml
+  hadoop_properties: name=hive.metastore.uris value=thrift://{{hostvars[hive_metastore_host].ansible_hostname}}:{{hivemeta_thrift_port}} state=present file={{hive_home.stdout}}/conf/hive-site.xml
   notify:
     - restart hivemeta
     - restart hiveserver2
@@ -211,30 +211,36 @@
     - restart hiveserver2
 
 - name: set hive metastore server
-  hadoop_properties: name="hive.metastore.uris" state=present value="thrift://{{hostvars[hive_metastore_host].ansible_hostname}}:9083" file={{hive_home.stdout}}/conf/hive-site.xml
+  hadoop_properties: name="hive.metastore.uris" state=present value="thrift://{{hostvars[hive_metastore_host].ansible_hostname}}:{{hivemeta_thrift_port}}" file={{hive_home.stdout}}/conf/hive-site.xml
   notify:
     - restart hivemeta
     - restart hiveserver2
 
 # XXX: this directory should not be hard coded
 - name: does hive warehouse directory exist?
-  command: sudo -u mapr hadoop fs -test -d /user/hive/warehouse
+  sudo: yes
+  sudo_user: '{{mapr_admin_username}}'
+  command: hadoop fs -test -d /user/hive/warehouse
   register: warehouse_exists
   failed_when: warehouse_exists.rc not in (0,1,255)
   changed_when: false
 
 # Cannot do this when in secure mode without logging in
 - name: create hive warehouse directory
-  command: sudo -u mapr hadoop fs -mkdir -p /user/hive/warehouse
+  sudo: yes
+  sudo_user: '{{mapr_admin_username}}'
+  command: hadoop fs -mkdir -p /user/hive/warehouse
   when: warehouse_exists.rc in (1,255)
 
 # Cannot do this when in secure mode without logging in
 - name: set permissions on warehouse directory
-  command: sudo -u mapr hadoop fs -chmod 1777 /user/hive/warehouse
+  sudo: yes
+  sudo_user: '{{mapr_admin_username}}'
+  command: hadoop fs -chmod 1777 /user/hive/warehouse
 
 - name: wait for hs2 and hivemeta to come up
   wait_for: port={{item}} delay=2 timeout=30
   with_items:
-    - 9083
+    - '{{hivemeta_thrift_port}}'
     - '{{hiveserver2_thrift_port}}'
   
