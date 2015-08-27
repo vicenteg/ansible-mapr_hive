@@ -14,23 +14,30 @@ Role Variables
 The defaults will look something like this:
 
 ```
+proxy_env: { }
+
 mysql_root_user: root
 mysql_root_password: mapr
 
 hive_db: metastore
 hive_db_user: hive
 hive_db_pass: mapr
-hive_metastore_host: localhost
+hive_metastore_host: '{{groups["hiveserver"][0]}}'
 
-hive_version: "0.12*"
+hive_version: "1.0*"
+
+hive_authentication_type: maprsasl
+hive_pam_services: login,sudo,sshd
+
+hiveserver2_thrift_port: 10000
+hivemeta_thrift_port: 9083
 ```
 
-Modify as you see fit. By default, we'll use localhost for the database. Change the metastore host as needed to point to the correct MySQL server. The mysql_root_user and mysql_root_password variables will be used to authenticate to MySQL to create the metastore database.
+Modify as you see fit. The metastore host will also be the MySQL database host as well. The mysql_root_user and mysql_root_password variables will be used to authenticate to MySQL to create the metastore database.
 
 Dependencies
 ------------
 
-There is a MySQL playbook that installs and configures a mysql server: [](https://github.com/vicenteg/mapr-ansible-roles/tree/master/playbooks/roles/mysql-server)
 
 Example Playbook
 -------------------------
@@ -38,21 +45,17 @@ Example Playbook
 The example below assumes that an inventory file has been created with certain groups that can be used to identify the nodes in the cluster having certain roles.
 
 ```
----
-- hosts: cldb:mysql:zookeepers
-# just collecting facts so that we can locate the CLDB and mysql
 
+```
 - hosts: hiveserver
-  sudo: yes
   roles:
-    - mapr-client
-    - mapr-hive
+    - { role: mapr_hive }
 ```
 
 License
 -------
 
-BSD
+MIT
 
 Author Information
 ------------------
