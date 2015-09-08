@@ -3,10 +3,14 @@
 # mysql_root_password comes from top-level group_vars/all
 
 - name: install mysqldb which is required for ansible
+  sudo: yes
+  sudo_user: root
   yum: name=MySQL-python state=present
   environment: proxy_env
 
 - name: install hive $hive_version and related packages
+  sudo: yes
+  sudo_user: root
   yum: name={{item}} state=present
   with_items:
     - mysql
@@ -22,11 +26,15 @@
   changed_when: false
 
 - name: ensure the top level hive directory is owned by mapr so logs directory can be created
+  sudo: yes
+  sudo_user: root
   file: path=/opt/mapr/hive owner=mapr group=mapr recurse=yes
 
 # Note that this template may rely on variables in other groups, and as a result, 
 # my not always work when this playbook is run individually.
 - name: write .my.cnf for root
+  sudo: yes
+  sudo_user: root
   template: src=dot-my.cnf.j2 dest=/root/.my.cnf mode=0600 owner=root group=root
 
 - name: ensure hive metastore database exists
@@ -110,6 +118,8 @@
 
 - name: enable SASL auth with encryption when secure
   hadoop_properties: name=hive.server2.thrift.sasl.qop value=auth-conf file={{hive_home.stdout}}/conf/hive-site.xml state=present
+  sudo: yes
+  sudo_user: '{{mapr_admin_username}}'
   when: secure_cluster is defined and secure_cluster == "True"
   notify:
     - restart hivemeta
