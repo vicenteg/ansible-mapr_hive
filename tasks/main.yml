@@ -64,6 +64,16 @@
     login_host="{{hostvars[hive_metastore_host].ansible_hostname}}"
   when: metastore_tables.stdout|length == 0 and '0.13' in hive_version
 
+- name: create the hive metastore schema for hive 0.14 or 1.0
+  mysql_db:
+    name="{{hive_db}}"
+    state=import
+    target="{{hive_home.stdout}}/scripts/metastore/upgrade/mysql/hive-schema-0.14.0.mysql.sql"
+    login_user="{{mysql_root_user}}"
+    login_password="{{mysql_root_password}}"
+    login_host="{{hostvars[hive_metastore_host].ansible_hostname}}"
+  when: metastore_tables.stdout|length == 0 and '1.0' in hive_version
+
 - name: create mapr user@localhost
   mysql_user:
     name={{hive_db_user}}
