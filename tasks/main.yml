@@ -3,13 +3,11 @@
 # mysql_root_password comes from top-level group_vars/all
 
 - name: install mysqldb which is required for ansible
-  sudo: yes
   sudo_user: root
   yum: name=MySQL-python state=present
   environment: proxy_env
 
 - name: install hive $hive_version and related packages
-  sudo: yes
   sudo_user: root
   yum: name={{item}} state=present
   with_items:
@@ -26,14 +24,12 @@
   changed_when: false
 
 - name: ensure the top level hive directory is owned by mapr so logs directory can be created
-  sudo: yes
   sudo_user: root
   file: path=/opt/mapr/hive owner=mapr group=mapr recurse=yes
 
 # Note that this template may rely on variables in other groups, and as a result, 
 # my not always work when this playbook is run individually.
 - name: write .my.cnf for root
-  sudo: yes
   sudo_user: root
   template: src=dot-my.cnf.j2 dest=/root/.my.cnf mode=0600 owner=root group=root
 
@@ -126,36 +122,42 @@
     - restart hiveserver2
 
 - name: set metastore URI
+  sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.metastore.uris value=thrift://{{hostvars[hive_metastore_host].ansible_hostname}}:{{hivemeta_thrift_port}} state=present file={{hive_home.stdout}}/conf/hive-site.xml
   notify:
     - restart hivemeta
     - restart hiveserver2
 
 - name: set JDBC URL for the metastore
+  sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=javax.jdo.option.ConnectionURL value=jdbc:mysql://{{hostvars[hive_metastore_host].ansible_hostname}}:3306/{{hive_db}} state=present file={{hive_home.stdout}}/conf/hive-site.xml
   notify:
     - restart hivemeta
     - restart hiveserver2
 
 - name: set hiveserver2 thrift port
+  sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.server2.thrift.port value={{hiveserver2_thrift_port}} file={{hive_home.stdout}}/conf/hive-site.xml state=present
   notify:
     - restart hivemeta
     - restart hiveserver2
 
 - name: set hive metastore user
+  sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=javax.jdo.option.ConnectionUserName value={{hive_db_user}} state=present file={{hive_home.stdout}}/conf/hive-site.xml
   notify:
     - restart hivemeta
     - restart hiveserver2
 
 - name: set hive metastore password
+  sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=javax.jdo.option.ConnectionPassword value={{hive_db_pass}} state=present file={{hive_home.stdout}}/conf/hive-site.xml
   notify:
     - restart hivemeta
     - restart hiveserver2
 
 - name: enable impersonation (if secure_cluster)
+  sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name={{item}} state=present value="true" file={{hive_home.stdout}}/conf/hive-site.xml
   with_items:
     - "hive.metastore.execute.setugi"
@@ -167,6 +169,7 @@
     - restart hiveserver2
 
 - name: turn on storage side metastore security if secure_cluster)
+  sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.metastore.pre.event.listeners state=present value=org.apache.hadoop.hive.ql.security.authorization.AuthorizationPreEventListener file={{hive_home.stdout}}/conf/hive-site.xml
   when: secure_cluster is defined and secure_cluster == "True"
   notify:
@@ -174,6 +177,7 @@
     - restart hiveserver2
 
 - name: enable storage authn (if secure_cluster)
+  sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.security.metastore.authenticator.manager state=present value=org.apache.hadoop.hive.ql.security.HadoopDefaultMetastoreAuthenticator file={{hive_home.stdout}}/conf/hive-site.xml
   when: secure_cluster is defined and secure_cluster == "True"
   notify:
@@ -181,6 +185,7 @@
     - restart hiveserver2
 
 - name: enable storage based authz (if secure_cluster)
+  sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.security.metastore.authorization.manager state=present value=org.apache.hadoop.hive.ql.security.authorization.StorageBasedAuthorizationProvider file={{hive_home.stdout}}/conf/hive-site.xml
   when: secure_cluster is defined and secure_cluster == "True"
   notify:
@@ -189,6 +194,7 @@
 
 
 - name: enable hive2 PAM authentication
+  sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.server2.authentication value=PAM file={{hive_home.stdout}}/conf/hive-site.xml
   when: secure_cluster is defined and secure_cluster == "True" and hive_authentication_type == "pam"
   notify:
@@ -196,6 +202,7 @@
     - restart hiveserver2
 
 - name: enable hive2 MapR SASL authentication
+  sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.server2.authentication value=MAPRSASL file={{hive_home.stdout}}/conf/hive-site.xml
   when: secure_cluster is defined and secure_cluster == "True" and hive_authentication_type == "maprsasl"
   notify:
@@ -203,6 +210,7 @@
     - restart hiveserver2
 
 - name: enable SSL
+  sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.server2.use.SSL value=true file={{hive_home.stdout}}/conf/hive-site.xml state=present
   when: secure_cluster is defined and secure_cluster == "True" and hive_authentication_type == "pam"
   notify:
@@ -210,6 +218,7 @@
     - restart hiveserver2
 
 - name: set path to ssl_keystore
+  sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.server2.keystore.path value=/opt/mapr/conf/ssl_keystore file={{hive_home.stdout}}/conf/hive-site.xml
   when: secure_cluster is defined and secure_cluster == "True" and hive_authentication_type == "pam"
   notify:
@@ -217,6 +226,7 @@
     - restart hiveserver2
 
 - name: set password to ssl_keystore
+  sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.server2.keystore.password value=mapr123 file={{hive_home.stdout}}/conf/hive-site.xml state=present
   when: secure_cluster is defined and secure_cluster == "True" and hive_authentication_type == "pam"
   notify:
@@ -224,6 +234,7 @@
     - restart hiveserver2
 
 - name: set PAM authentication services
+  sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.server2.authentication.pam.services value={{hive_pam_services}} file={{hive_home.stdout}}/conf/hive-site.xml
   when: secure_cluster is defined and secure_cluster == "True" and hive_authentication_type == "pam"
   notify:
@@ -231,6 +242,7 @@
     - restart hiveserver2
 
 - name: set hive metastore server
+  sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name="hive.metastore.uris" state=present value="thrift://{{hostvars[hive_metastore_host].ansible_hostname}}:{{hivemeta_thrift_port}}" file={{hive_home.stdout}}/conf/hive-site.xml
   notify:
     - restart hivemeta
@@ -238,7 +250,6 @@
 
 # XXX: this directory should not be hard coded
 - name: does hive warehouse directory exist?
-  sudo: yes
   sudo_user: '{{mapr_admin_username}}'
   command: hadoop fs -test -d /user/hive/warehouse
   register: warehouse_exists
@@ -247,14 +258,12 @@
 
 # Cannot do this when in secure mode without logging in
 - name: create hive warehouse directory
-  sudo: yes
   sudo_user: '{{mapr_admin_username}}'
   command: hadoop fs -mkdir -p /user/hive/warehouse
   when: warehouse_exists.rc in (1,255)
 
 # Cannot do this when in secure mode without logging in
 - name: set permissions on warehouse directory
-  sudo: yes
   sudo_user: '{{mapr_admin_username}}'
   command: hadoop fs -chmod 1777 /user/hive/warehouse
 
