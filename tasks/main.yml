@@ -116,7 +116,7 @@
   hadoop_properties: name=hive.server2.thrift.sasl.qop value=auth-conf file={{hive_home.stdout}}/conf/hive-site.xml state=present
   sudo: yes
   sudo_user: '{{mapr_admin_username}}'
-  when: secure_cluster is defined and secure_cluster == "True"
+  when: secure_cluster is defined and secure_cluster == True
   notify:
     - restart hivemeta
     - restart hiveserver2
@@ -163,7 +163,7 @@
     - "hive.metastore.execute.setugi"
     - "hive.server2.enable.doAs"
     - "hive.security.metastore.authorization.auth.reads"
-  when: secure_cluster is defined and secure_cluster == "True"
+  when: secure_cluster is defined and secure_cluster == True
   notify:
     - restart hivemeta
     - restart hiveserver2
@@ -171,7 +171,7 @@
 - name: turn on storage side metastore security if secure_cluster)
   sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.metastore.pre.event.listeners state=present value=org.apache.hadoop.hive.ql.security.authorization.AuthorizationPreEventListener file={{hive_home.stdout}}/conf/hive-site.xml
-  when: secure_cluster is defined and secure_cluster == "True"
+  when: secure_cluster is defined and secure_cluster == True
   notify:
     - restart hivemeta
     - restart hiveserver2
@@ -179,7 +179,7 @@
 - name: enable storage authn (if secure_cluster)
   sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.security.metastore.authenticator.manager state=present value=org.apache.hadoop.hive.ql.security.HadoopDefaultMetastoreAuthenticator file={{hive_home.stdout}}/conf/hive-site.xml
-  when: secure_cluster is defined and secure_cluster == "True"
+  when: secure_cluster is defined and secure_cluster == True
   notify:
     - restart hivemeta
     - restart hiveserver2
@@ -187,7 +187,7 @@
 - name: enable storage based authz (if secure_cluster)
   sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.security.metastore.authorization.manager state=present value=org.apache.hadoop.hive.ql.security.authorization.StorageBasedAuthorizationProvider file={{hive_home.stdout}}/conf/hive-site.xml
-  when: secure_cluster is defined and secure_cluster == "True"
+  when: secure_cluster is defined and secure_cluster == True
   notify:
     - restart hivemeta
     - restart hiveserver2
@@ -196,7 +196,7 @@
 - name: enable hive2 PAM authentication
   sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.server2.authentication value=PAM file={{hive_home.stdout}}/conf/hive-site.xml
-  when: secure_cluster is defined and secure_cluster == "True" and hive_authentication_type == "pam"
+  when: secure_cluster is defined and secure_cluster == True and hive_authentication_type == "pam"
   notify:
     - restart hivemeta
     - restart hiveserver2
@@ -204,7 +204,7 @@
 - name: enable hive2 MapR SASL authentication
   sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.server2.authentication value=MAPRSASL file={{hive_home.stdout}}/conf/hive-site.xml
-  when: secure_cluster is defined and secure_cluster == "True" and hive_authentication_type == "maprsasl"
+  when: secure_cluster is defined and secure_cluster == True and hive_authentication_type == "maprsasl"
   notify:
     - restart hivemeta
     - restart hiveserver2
@@ -212,7 +212,7 @@
 - name: enable SSL
   sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.server2.use.SSL value=true file={{hive_home.stdout}}/conf/hive-site.xml state=present
-  when: secure_cluster is defined and secure_cluster == "True" and hive_authentication_type == "pam"
+  when: secure_cluster is defined and secure_cluster == True and hive_authentication_type == "pam"
   notify:
     - restart hivemeta
     - restart hiveserver2
@@ -220,7 +220,7 @@
 - name: set path to ssl_keystore
   sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.server2.keystore.path value=/opt/mapr/conf/ssl_keystore file={{hive_home.stdout}}/conf/hive-site.xml
-  when: secure_cluster is defined and secure_cluster == "True" and hive_authentication_type == "pam"
+  when: secure_cluster is defined and secure_cluster == True and hive_authentication_type == "pam"
   notify:
     - restart hivemeta
     - restart hiveserver2
@@ -228,7 +228,7 @@
 - name: set password to ssl_keystore
   sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.server2.keystore.password value=mapr123 file={{hive_home.stdout}}/conf/hive-site.xml state=present
-  when: secure_cluster is defined and secure_cluster == "True" and hive_authentication_type == "pam"
+  when: secure_cluster is defined and secure_cluster == True and hive_authentication_type == "pam"
   notify:
     - restart hivemeta
     - restart hiveserver2
@@ -236,7 +236,7 @@
 - name: set PAM authentication services
   sudo_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.server2.authentication.pam.services value={{hive_pam_services}} file={{hive_home.stdout}}/conf/hive-site.xml
-  when: secure_cluster is defined and secure_cluster == "True" and hive_authentication_type == "pam"
+  when: secure_cluster is defined and secure_cluster == True and hive_authentication_type == "pam"
   notify:
     - restart hivemeta
     - restart hiveserver2
