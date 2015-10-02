@@ -25,7 +25,7 @@
 
 - name: ensure the top level hive directory is owned by mapr so logs directory can be created
   sudo_user: root
-  file: path=/opt/mapr/hive owner=mapr group=mapr recurse=yes
+  file: path=/opt/mapr/hive owner={{mapr_admin_username}} group={{mapr_admin_username}} recurse=yes
 
 # Note that this template may rely on variables in other groups, and as a result, 
 # my not always work when this playbook is run individually.
