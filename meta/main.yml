@@ -118,4 +118,5 @@ galaxy_info:
   #- web
 dependencies:
   - mysql_server
+  - { role: mapr_maprlogin, when: secure_cluster is defined and secure_cluster == True }
   
