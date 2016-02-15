@@ -117,6 +117,6 @@ galaxy_info:
   #- system
   #- web
 dependencies:
-  - mysql_server
-  - { role: mapr_maprlogin, when: secure_cluster is defined and secure_cluster == True }
+  - { role: vicenteg.mysql_server }
+  - { role: vicenteg.mapr_maprlogin, when: secure_cluster is defined and secure_cluster == True }
   
