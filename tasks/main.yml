@@ -33,51 +33,6 @@
   sudo_user: root
   template: src=dot-my.cnf.j2 dest=/root/.my.cnf mode=0600 owner=root group=root
 
-- name: ensure hive metastore database exists
-  mysql_db:
-    name="{{hive_db}}"
-    state=present
-    login_user="{{mysql_root_user}}"
-    login_password="{{mysql_root_password}}"
-    login_host="{{hostvars[hive_metastore_host].ansible_hostname}}"
-  register: db_changed
-
-- name: check for metastore table
-  command: mysql -u {{mysql_root_user}} --password={{mysql_root_password}} {{hive_db}} -e 'show tables'
-  register: metastore_tables
-  changed_when: false
-  no_log: True
-
-- name: create the hive metastore schema for hive 0.12
-  mysql_db:
-    name="{{hive_db}}"
-    state=import
-    target="{{hive_home.stdout}}/scripts/metastore/upgrade/mysql/hive-schema-0.12.0.mysql.sql"
-    login_user="{{mysql_root_user}}"
-    login_password="{{mysql_root_password}}"
-    login_host="{{hostvars[hive_metastore_host].ansible_hostname}}"
-  when: metastore_tables.stdout|length == 0 and '0.12' in hive_version
-
-- name: create the hive metastore schema for hive 0.13
-  mysql_db:
-    name="{{hive_db}}"
-    state=import
-    target="{{hive_home.stdout}}/scripts/metastore/upgrade/mysql/hive-schema-0.13.0.mysql.sql"
-    login_user="{{mysql_root_user}}"
-    login_password="{{mysql_root_password}}"
-    login_host="{{hostvars[hive_metastore_host].ansible_hostname}}"
-  when: metastore_tables.stdout|length == 0 and '0.13' in hive_version
-
-- name: create the hive metastore schema for hive 0.14 or 1.0
-  mysql_db:
-    name="{{hive_db}}"
-    state=import
-    target="{{hive_home.stdout}}/scripts/metastore/upgrade/mysql/hive-schema-0.14.0.mysql.sql"
-    login_user="{{mysql_root_user}}"
-    login_password="{{mysql_root_password}}"
-    login_host="{{hostvars[hive_metastore_host].ansible_hostname}}"
-  when: metastore_tables.stdout|length == 0 and '1.0' in hive_version
-
 - name: create mapr user@localhost
   mysql_user:
     name={{hive_db_user}}
@@ -109,9 +64,6 @@
     - "{{hostvars[hive_metastore_host].ansible_fqdn}}"
     - "%"
 
-#- name: copy hive-site.xml into place
-#  template: src=hive-site.xml.j2 dest="{{hive_home.stdout}}/conf/hive-site.xml"
-
 - name: enable SASL auth with encryption when secure
   hadoop_properties: name=hive.server2.thrift.sasl.qop value=auth-conf file={{hive_home.stdout}}/conf/hive-site.xml state=present
   sudo: yes
@@ -130,7 +82,14 @@
 
 - name: set JDBC URL for the metastore
   sudo_user: '{{mapr_admin_username}}'
-  hadoop_properties: name=javax.jdo.option.ConnectionURL value=jdbc:mysql://{{hostvars[hive_metastore_host].ansible_hostname}}:3306/{{hive_db}} state=present file={{hive_home.stdout}}/conf/hive-site.xml
+  hadoop_properties: name=javax.jdo.option.ConnectionURL value=jdbc:mysql://{{hostvars[hive_metastore_host].ansible_hostname}}:3306/{{hive_db}}?createDatabaseIfNotExist=true state=present file={{hive_home.stdout}}/conf/hive-site.xml
+  notify:
+    - restart hivemeta
+    - restart hiveserver2
+
+- name: set datanucleus.schema.autoCreateTables
+  sudo_user: '{{mapr_admin_username}}'
+  hadoop_properties: name=datanucleus.schema.autoCreateTables value=true state=present file={{hive_home.stdout}}/conf/hive-site.xml
   notify:
     - restart hivemeta
     - restart hiveserver2

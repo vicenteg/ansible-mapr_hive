@@ -11,7 +11,7 @@ hive_db_user: hive
 hive_db_pass: mapr
 hive_metastore_host: '{{groups["hiveserver"][0]}}'
 
-hive_version: "1.0*"
+hive_version: "1.2"
 
 hive_authentication_type: maprsasl
 hive_pam_services: login,sudo,sshd
