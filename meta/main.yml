@@ -117,6 +117,7 @@ galaxy_info:
   #- system
   #- web
 dependencies:
-  - { role: vicenteg.mysql_server }
+  - { role: vicenteg.mysql_server, when: ansible_distribution_major_version == "6" }
+  - { role: vicenteg.mariadb, when: ansible_distribution_major_version == "7" }
   - { role: vicenteg.mapr_maprlogin, when: secure_cluster is defined and secure_cluster == True }
   
