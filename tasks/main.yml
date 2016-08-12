@@ -68,6 +68,11 @@
     - "{{hostvars[hive_metastore_host].ansible_fqdn}}"
     - "%"
 
+- name: remove world-read permission from hive-site.xml (contains metastore DB password)
+  become: yes
+  become_user: root
+  file: path=/opt/mapr/hive/hive-{{hive_version}}/conf/hive-site.xml mode=0640
+
 - name: enable SASL auth with encryption when secure
   hadoop_properties: name=hive.server2.thrift.sasl.qop value=auth-conf file={{hive_home.stdout}}/conf/hive-site.xml state=present
   become: yes
@@ -125,7 +130,20 @@
     - restart hivemeta
     - restart hiveserver2
 
-- name: enable impersonation (if secure_cluster)
+- name: disable impersonation when insecure
+  become: yes
+  become_user: '{{mapr_admin_username}}'
+  hadoop_properties: name={{item}} state=present value="false" file={{hive_home.stdout}}/conf/hive-site.xml
+  with_items:
+    - "hive.metastore.execute.setugi"
+    - "hive.server2.enable.doAs"
+    - "hive.security.metastore.authorization.auth.reads"
+  notify:
+    - restart hivemeta
+    - restart hiveserver2
+  when: secure_cluster is defined and secure_cluster == False
+
+- name: enable impersonation
   become: yes
   become_user: '{{mapr_admin_username}}'
   hadoop_properties: name={{item}} state=present value="true" file={{hive_home.stdout}}/conf/hive-site.xml
@@ -133,34 +151,31 @@
     - "hive.metastore.execute.setugi"
     - "hive.server2.enable.doAs"
     - "hive.security.metastore.authorization.auth.reads"
-  when: secure_cluster is defined and secure_cluster == True
   notify:
     - restart hivemeta
     - restart hiveserver2
+  when: secure_cluster is defined and secure_cluster
 
-- name: turn on storage side metastore security if secure_cluster)
+- name: turn on storage side metastore security
   become: yes
   become_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.metastore.pre.event.listeners state=present value=org.apache.hadoop.hive.ql.security.authorization.AuthorizationPreEventListener file={{hive_home.stdout}}/conf/hive-site.xml
-  when: secure_cluster is defined and secure_cluster == True
   notify:
     - restart hivemeta
     - restart hiveserver2
 
-- name: enable storage authn (if secure_cluster)
+- name: enable storage authn
   become: yes
   become_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.security.metastore.authenticator.manager state=present value=org.apache.hadoop.hive.ql.security.HadoopDefaultMetastoreAuthenticator file={{hive_home.stdout}}/conf/hive-site.xml
-  when: secure_cluster is defined and secure_cluster == True
   notify:
     - restart hivemeta
     - restart hiveserver2
 
-- name: enable storage based authz (if secure_cluster)
+- name: enable storage based authz
   become: yes
   become_user: '{{mapr_admin_username}}'
   hadoop_properties: name=hive.security.metastore.authorization.manager state=present value=org.apache.hadoop.hive.ql.security.authorization.StorageBasedAuthorizationProvider file={{hive_home.stdout}}/conf/hive-site.xml
-  when: secure_cluster is defined and secure_cluster == True
   notify:
     - restart hivemeta
     - restart hiveserver2
