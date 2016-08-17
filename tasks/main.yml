@@ -265,9 +265,13 @@
   become_user: '{{mapr_admin_username}}'
   command: hadoop fs -chmod 1777 /user/hive/warehouse
 
+- name: execute handlers now
+  meta: flush_handlers
+
 - name: wait for hs2 and hivemeta to come up
   wait_for: port={{item}} timeout=60
   with_items:
     - '{{hivemeta_thrift_port}}'
     - '{{hiveserver2_thrift_port}}'
+  tags: test
   
