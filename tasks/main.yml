@@ -8,7 +8,7 @@
   yum: name=MySQL-python state=present
   environment: '{{proxy_env}}'
 
-- name: install hive $hive_version and related packages
+- name: install hive {{hive_version}} and related packages
   become: yes
   become_user: root
   yum: name={{item}} state=present
@@ -264,6 +264,9 @@
   become: yes
   become_user: '{{mapr_admin_username}}'
   command: hadoop fs -chmod 1777 /user/hive/warehouse
+
+- name: give warden a little time to find hive services
+  pause: seconds=30
 
 - name: execute handlers now
   meta: flush_handlers
