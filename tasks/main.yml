@@ -16,6 +16,14 @@
     - mysql
     - 'mapr-hive-{{hive_version}}*'
     - 'mapr-hiveserver2-{{hive_version}}*'
+  notify: reconfigure roles
+  environment: '{{proxy_env}}'
+
+- name: install hive {{hive_version}} metastore
+  become: yes
+  become_user: root
+  yum: name={{item}} state=present
+  with_items:
     - 'mapr-hivemetastore-{{hive_version}}*'
   notify: reconfigure roles
   environment: '{{proxy_env}}'
@@ -85,7 +93,7 @@
 - name: set metastore URI
   become: yes
   become_user: '{{mapr_admin_username}}'
-  hadoop_properties: name=hive.metastore.uris value=thrift://{{hostvars[hive_metastore_host].ansible_hostname}}:{{hivemeta_thrift_port}} state=present file={{hive_home.stdout}}/conf/hive-site.xml
+  hadoop_properties: name=hive.metastore.uris value={% for node in groups['hiveserver'] -%}thrift://{{ hostvars[node].ansible_fqdn }}:{{hivemeta_thrift_port}}{% if not loop.last %},{% endif %}{% endfor %}  state=present file={{hive_home.stdout}}/conf/hive-site.xml
   notify:
     - restart hivemeta
     - restart hiveserver2
@@ -235,14 +243,6 @@
     - restart hivemeta
     - restart hiveserver2
 
-- name: set hive metastore server
-  become: yes
-  become_user: '{{mapr_admin_username}}'
-  hadoop_properties: name="hive.metastore.uris" state=present value="thrift://{{hostvars[hive_metastore_host].ansible_hostname}}:{{hivemeta_thrift_port}}" file={{hive_home.stdout}}/conf/hive-site.xml
-  notify:
-    - restart hivemeta
-    - restart hiveserver2
-
 # XXX: this directory should not be hard coded
 - name: does hive warehouse directory exist?
   become: yes
@@ -271,10 +271,24 @@
 - name: execute handlers now
   meta: flush_handlers
 
-- name: wait for hs2 and hivemeta to come up
-  wait_for: port={{item}} timeout=60
-  with_items:
-    - '{{hivemeta_thrift_port}}'
-    - '{{hiveserver2_thrift_port}}'
+- name: get the active hs2
+  become: yes
+  become_user: '{{mapr_admin_username}}'
+  shell: maprcli node list -filter svc==hs2 -columns hostname -noheader | awk '{print $1}'
+  register: active_hs2
+
+- name: get the active hivemeta
+  become: yes
+  become_user: '{{mapr_admin_username}}'
+  shell: maprcli node list -filter svc==hivemeta -columns hostname -noheader | awk '{print $1}'
+  register: active_hivemeta
+
+- name: wait for hivemeta to be listening
+  wait_for: host={{active_hivemeta.stdout}} port={{hivemeta_thrift_port}} timeout=60
+  run_once: yes
   tags: test
   
+- name: wait for hs2 to be listening
+  wait_for: host={{active_hs2.stdout}} port={{hiveserver2_thrift_port}} timeout=60
+  run_once: yes
+  tags: test
