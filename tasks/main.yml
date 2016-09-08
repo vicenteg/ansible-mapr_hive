@@ -6,7 +6,6 @@
   become: yes
   become_user: root
   yum: name=MySQL-python state=present
-  environment: '{{proxy_env}}'
 
 - name: install hive {{hive_version}} and related packages
   become: yes
@@ -17,7 +16,6 @@
     - 'mapr-hive-{{hive_version}}*'
     - 'mapr-hiveserver2-{{hive_version}}*'
   notify: reconfigure roles
-  environment: '{{proxy_env}}'
 
 - name: install hive {{hive_version}} metastore
   become: yes
@@ -26,7 +24,6 @@
   with_items:
     - 'mapr-hivemetastore-{{hive_version}}*'
   notify: reconfigure roles
-  environment: '{{proxy_env}}'
 
 - name: store the path to hive
   shell: rpm -ql mapr-hive  | head -2 | tail -1
