@@ -273,12 +273,14 @@
   become_user: '{{mapr_admin_username}}'
   shell: maprcli node list -filter svc==hs2 -columns hostname -noheader | awk '{print $1}'
   register: active_hs2
+  tags: test
 
 - name: get the active hivemeta
   become: yes
   become_user: '{{mapr_admin_username}}'
   shell: maprcli node list -filter svc==hivemeta -columns hostname -noheader | awk '{print $1}'
   register: active_hivemeta
+  tags: test
 
 - name: wait for hivemeta to be listening
   wait_for: host={{active_hivemeta.stdout}} port={{hivemeta_thrift_port}} timeout=60
