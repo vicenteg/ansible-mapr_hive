@@ -254,6 +254,7 @@
   become: yes
   become_user: '{{mapr_admin_username}}'
   command: hadoop fs -mkdir -p /user/hive/warehouse
+  run_once: yes
   when: warehouse_exists.rc in (1,255)
 
 # Cannot do this when in secure mode without logging in
@@ -261,6 +262,7 @@
   become: yes
   become_user: '{{mapr_admin_username}}'
   command: hadoop fs -chmod 1777 /user/hive/warehouse
+  run_once: yes
 
 - name: give warden a little time to find hive services
   pause: seconds=30
@@ -283,7 +285,7 @@
   tags: test
 
 - name: wait for hivemeta to be listening
-  wait_for: host={{active_hivemeta.stdout}} port={{hivemeta_thrift_port}} timeout=60
+  wait_for: host={{active_hivemeta.stdout}} port={{hivemeta_thrift_port}} timeout=120
   run_once: yes
   tags: test
   
